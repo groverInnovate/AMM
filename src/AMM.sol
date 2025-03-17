@@ -2,8 +2,8 @@
 
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "forge-std/console.sol";
 
 contract AMM {
     IERC20 public tokenA;
@@ -92,42 +92,75 @@ contract AMM {
     }
 
     function swap(
-        address tokenIn,
-        uint256 amountIn
-    ) external returns (uint256 amountout) {
-        // Include 0.3% fee for transactions , this fees goes to the Liquidity Poolers
-        require(amountIn > 0, "Input amount must be greater than zero");
-        require(
-            tokenIn == address(tokenA) || tokenIn == address(tokenB),
-            "Invalid Token"
-        );
+    address tokenIn,
+    uint256 amountIn
+) external returns (uint256 amountOut) {
+    require(amountIn > 0, "Input amount must be greater than zero");
+    require(
+        tokenIn == address(tokenA) || tokenIn == address(tokenB),
+        "Invalid Token"
+    );
 
-        bool isTokenA = (tokenIn == address(tokenA));
-        (
-            IERC20 tokenInContract,
-            IERC20 tokenOutContract,
-            uint256 reserveIn,
-            uint256 reserveOut
-        ) = isTokenA
-                ? (tokenA, tokenB, reserveA, reserveB)
-                : (tokenB, tokenA, reserveB, reserveA); // With help of this ek se hi kaam hogeya dono exchange kr skte iss se 
+    bool isTokenA = (tokenIn == address(tokenA));
+    (
+        IERC20 tokenInContract,
+        IERC20 tokenOutContract,
+        uint256 reserveIn,
+        uint256 reserveOut
+    ) = isTokenA
+            ? (tokenA, tokenB, reserveA, reserveB)
+            : (tokenB, tokenA, reserveB, reserveA);
 
-        tokenInContract.transferFrom(msg.sender, address(this), amountIn);
-        uint256 amountInWithFee = (amountIn * 997) / 1000;
+    // Log initial reserves
+    console.log("Before Swap - ReserveA:", reserveA);
+    console.log("Before Swap - ReserveB:", reserveB);
 
-        amountOut =
-            (reserveOut * amountInWithFee) /
-            (reserveIn + amountInWithFee);
-        require(amountOut > 0, "Insufficient output amount");
+    // Transfer `amountIn` first and update reserveIn
+    tokenInContract.transferFrom(msg.sender, address(this), amountIn);
+    reserveIn += amountIn; // Adjust reserveIn after transfer
 
-        if (isTokenA) {
-            reserveA += amountIn;
-            reserveB -= amountOut;
-        } else {
-            reserveB += amountIn;
-            reserveA -= amountOut;
-        }
+    // Save old K (before swap)
+    uint256 oldK = reserveA * reserveB;
+    console.log("Old K:", oldK);
 
-        tokenOutContract.transfer(msg.sender, amountOut);
+    uint256 amountInWithFee = (amountIn * 997) / 1000;
+    amountOut = (reserveOut * amountInWithFee) / (reserveIn);
+
+    require(amountOut > 0, "Insufficient output amount");
+
+    // Transfer tokens *before* updating reserves
+    tokenOutContract.transfer(msg.sender, amountOut);
+
+    // Update reserves after transfer
+    if (isTokenA) {
+        reserveB -= amountOut;
+    } else {
+        reserveA -= amountOut;
+    }
+
+    // Log updated reserves
+    console.log("After Swap - ReserveA:", reserveA);
+    console.log("After Swap - ReserveB:", reserveB);
+
+    // Calculate new k
+    uint256 newK = reserveA * reserveB;
+    console.log("New K:", newK);
+
+    // Enforce invariant (newK should never be greater than oldK)
+    require(newK <= oldK, "Invariant violation: k increased!");
+
+    return amountOut;
+}
+
+
+    function getTokenPrices()
+        external
+        view
+        returns (uint256 priceA, uint256 priceB)
+    {
+        require(reserveA > 0 && reserveB > 0, "No liquidity available");
+
+        priceA = (reserveB * 1e18) / reserveA;
+        priceB = (reserveA * 1e18) / reserveB;
     }
 }
