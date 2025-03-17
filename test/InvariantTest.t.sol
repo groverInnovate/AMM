@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.18;
 
@@ -44,16 +44,16 @@ contract InvariantTest is Test {
         uint256 totalPoolBeforeSwapping = reserveA * reserveB;
 
         vm.startPrank(user2);
-        amm.swap(address(amm.tokenA()), 100 * 1e18);
-        amm.swap(address(amm.tokenB()), 200 * 1e18);
+        amm.swap(address(tokenA), 100 * 1e18);
+        amm.swap(address(tokenB), 200 * 1e18);
         vm.stopPrank();
 
         uint256 newReserveA = amm.reserveA();
         uint256 newReserveB = amm.reserveB();
-
         uint256 totalPoolAfterSwapping = newReserveA * newReserveB;
 
-        assertLe(
+        // Ensure that the constant product does not decrease significantly
+        assertGe(
             totalPoolAfterSwapping,
             (totalPoolBeforeSwapping * 997) / 1000
         );
