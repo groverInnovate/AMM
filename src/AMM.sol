@@ -11,7 +11,7 @@ contract AMM is ERC20 {
     uint256 public reserveA;
     uint256 public reserveB;
 
-    uint256 public constant FEE_PERCENT = 30; // 0.3% fee (scaled by 10000)
+    uint256 public constant FEE_PERCENT = 30; 
     uint256 public constant PRECISION = 10000;
 
     bool private locked;
