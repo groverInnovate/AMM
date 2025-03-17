@@ -3,9 +3,8 @@ pragma solidity ^0.8.18;
 
 import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
-contract AMM is ERC20, ReentrancyGuard {
+contract AMM is ERC20 {
     IERC20 public tokenA;
     IERC20 public tokenB;
 
@@ -14,6 +13,15 @@ contract AMM is ERC20, ReentrancyGuard {
 
     uint256 public constant FEE_PERCENT = 30; // 0.3% fee (scaled by 10000)
     uint256 public constant PRECISION = 10000;
+
+    bool private locked;
+
+    modifier noReentrancy() {
+        require(!locked, "Reentrancy detected!");
+        locked = true;
+        _;
+        locked = false;
+    }
 
     event LiquidityAdded(
         address indexed provider,
@@ -42,7 +50,7 @@ contract AMM is ERC20, ReentrancyGuard {
     function addLiquidity(
         uint256 amountA,
         uint256 amountB
-    ) external nonReentrant returns (uint256 liquidity) {
+    ) external noReentrancy returns (uint256 liquidity) {
         require(amountA > 0 && amountB > 0, "Amounts must be greater than 0");
 
         tokenA.transferFrom(msg.sender, address(this), amountA);
@@ -51,7 +59,7 @@ contract AMM is ERC20, ReentrancyGuard {
         if (reserveA == 0 && reserveB == 0) {
             liquidity = sqrt(amountA * amountB);
             require(liquidity > 1000, "Insufficient initial liquidity");
-            _mint(msg.sender, liquidity - 1000); // Burn small amount to prevent infinite inflation
+            _mint(msg.sender, liquidity - 1000);
         } else {
             liquidity = min(
                 (amountA * totalSupply()) / reserveA,
@@ -70,7 +78,7 @@ contract AMM is ERC20, ReentrancyGuard {
 
     function removeLiquidity(
         uint256 liquidity
-    ) external nonReentrant returns (uint256 amountA, uint256 amountB) {
+    ) external noReentrancy returns (uint256 amountA, uint256 amountB) {
         require(liquidity > 0, "Liquidity must be greater than 0");
         require(balanceOf(msg.sender) >= liquidity, "Insufficient LP balance");
 
@@ -98,7 +106,7 @@ contract AMM is ERC20, ReentrancyGuard {
         address tokenIn,
         uint256 amountIn,
         uint256 minAmountOut
-    ) external nonReentrant returns (uint256 amountOut) {
+    ) external noReentrancy returns (uint256 amountOut) {
         require(amountIn > 0, "Input amount must be greater than zero");
         require(
             tokenIn == address(tokenA) || tokenIn == address(tokenB),

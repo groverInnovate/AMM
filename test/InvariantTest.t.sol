@@ -44,8 +44,8 @@ contract InvariantTest is Test {
         uint256 totalPoolBeforeSwapping = reserveA * reserveB;
 
         vm.startPrank(user2);
-        amm.swap(address(tokenA), 100 * 1e18);
-        amm.swap(address(tokenB), 200 * 1e18);
+        amm.swap(address(tokenA), 100 * 1e18, 1); // Added minAmountOut
+        amm.swap(address(tokenB), 200 * 1e18, 1); // Added minAmountOut
         vm.stopPrank();
 
         uint256 newReserveA = amm.reserveA();
